@@ -3,7 +3,7 @@
 import DashboardMap from '@/components/ui/dashboard/DashboardMap'
 import NewsPanel from '@/components/ui/dashboard/NewsPanel'
 import DashboardHeader from '@/components/ui/dashboard/DashboardHeader'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import mapboxgl from 'mapbox-gl'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -11,7 +11,8 @@ import { NewsItem } from '@/types'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { NEWS_ENDPOINTS } from '@/config'
 
-export default function Dashboard() {
+// Separate component for using search params
+function DashboardContent() {
   const router = useRouter();
   const [newsData, setNewsData] = useState<NewsItem[]>([])
   const [filteredNewsData, setFilteredNewsData] = useState<NewsItem[]>([])
@@ -148,33 +149,43 @@ export default function Dashboard() {
   }, []);
   
   return (
-    <ProtectedRoute>
-      <div className={`h-screen w-full flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
-        <DashboardHeader 
-          onFilterChange={handleFilterChange} 
-          activeFilter={activeFilter}
-          onLocationSelect={handleLocationSelect}
-          darkMode={darkMode}
-          toggleDarkMode={toggleDarkMode}
+    <div className={`h-screen w-full flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      <DashboardHeader 
+        onFilterChange={handleFilterChange} 
+        activeFilter={activeFilter}
+        onLocationSelect={handleLocationSelect}
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
+      />
+      
+      <div className="flex flex-1 relative overflow-hidden">
+        <NewsPanel 
+          news={filteredNewsData} 
+          loading={loading}
+          darkMode={darkMode} 
+          mapRef={mapRef}
         />
-        
-        <div className="flex flex-1 relative overflow-hidden">
-          <NewsPanel 
-            news={filteredNewsData} 
-            loading={loading}
-            darkMode={darkMode} 
-            mapRef={mapRef}
-          />
-          <DashboardMap 
-            news={filteredNewsData} 
-            center={mapCenter}
-            darkMode={darkMode}
-            setMapRef={setMapReference}
-            zoomLevel={zoomLevel}
-            key={`map-${mapCenter[0]}-${mapCenter[1]}-${zoomLevel}`}
-          />
-        </div>
+        <DashboardMap 
+          news={filteredNewsData} 
+          center={mapCenter}
+          darkMode={darkMode}
+          setMapRef={setMapReference}
+          zoomLevel={zoomLevel}
+          key={`map-${mapCenter[0]}-${mapCenter[1]}-${zoomLevel}`}
+        />
       </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <Suspense fallback={<div className="flex items-center justify-center h-screen w-full bg-gray-100 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+      </div>}>
+        <DashboardContent />
+      </Suspense>
     </ProtectedRoute>
   );
 } 
