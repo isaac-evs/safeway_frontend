@@ -152,8 +152,6 @@ export default function DashboardHeader({
 
   // Function to handle location selection
   const handleSelectLocation = (location: any) => {
-    console.log('Location selected:', location.place_name);
-    
     // First close suggestions
     setShowSuggestions(false);
     

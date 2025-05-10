@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { HiMail, HiLockClosed, HiEye, HiEyeOff, HiUser } from 'react-icons/hi';
 import { useTheme } from '../../contexts/ThemeContext';
+import { AUTH_ENDPOINTS } from '@/config';
 
 export default function SignUp() {
   const router = useRouter();
@@ -37,7 +38,8 @@ export default function SignUp() {
     }
 
     try {
-      const response = await fetch('/api/auth/signup', {
+      // Paso 1: Registro de usuario usando JSON
+      const registerResponse = await fetch(AUTH_ENDPOINTS.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,11 +47,33 @@ export default function SignUp() {
         body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await response.json();
+      const registerData = await registerResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
+      if (!registerResponse.ok) {
+        throw new Error(registerData.detail || registerData.message || 'Signup failed');
       }
+
+      // Paso 2: Iniciar sesión usando x-www-form-urlencoded para OAuth2
+      const loginFormData = new URLSearchParams();
+      loginFormData.append('username', email);
+      loginFormData.append('password', password);
+
+      const loginResponse = await fetch(AUTH_ENDPOINTS.LOGIN, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: loginFormData.toString(),
+      });
+
+      const loginData = await loginResponse.json();
+
+      if (!loginResponse.ok) {
+        throw new Error(loginData.detail || loginData.message || 'Auto-login failed');
+      }
+
+      // Guardar el token en localStorage
+      localStorage.setItem('authToken', loginData.access_token);
 
       router.push('/dashboard');
     } catch (err) {
@@ -97,7 +121,7 @@ export default function SignUp() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* <div className="space-y-2">
+            <div className="space-y-2">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Full Name
               </label>
@@ -115,7 +139,7 @@ export default function SignUp() {
                   required
                 />
               </div>
-            </div> */}
+            </div>
 
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">

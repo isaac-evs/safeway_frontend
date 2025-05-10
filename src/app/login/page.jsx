@@ -6,8 +6,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { HiMail, HiLockClosed, HiEye, HiEyeOff } from 'react-icons/hi';
-import ForgotPasswordModal from '@/components/ui/auth/forgotPasswordModal';
 import { useTheme } from '../../contexts/ThemeContext';
+import { AUTH_ENDPOINTS } from '@/config';
 
 export default function Login() {
   const router = useRouter();
@@ -17,7 +17,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
   const [error, setError] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -30,20 +29,27 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const formData = new URLSearchParams();
+      formData.append('username', email);
+      formData.append('password', password);
+
+      const response = await fetch(AUTH_ENDPOINTS.LOGIN, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({ email, password }),
+        body: formData.toString(),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(data.detail || data.message || 'Login failed');
       }
 
+      // Guardar el token en localStorage para uso posterior
+      localStorage.setItem('authToken', data.access_token);
+      
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -153,15 +159,6 @@ export default function Login() {
                   Remember me
                 </label>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowForgotPassword(true)}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
-              >
-                Forgot password?
-              </button>
-
             </div>
 
             <button
@@ -187,11 +184,6 @@ export default function Login() {
           </div>
         </motion.div>
       </div>
-
-      <ForgotPasswordModal 
-        isOpen={showForgotPassword} 
-        onClose={() => setShowForgotPassword(false)} 
-      />
     </div>
   );
 }

@@ -11,11 +11,16 @@ import { useTheme } from '../../contexts/ThemeContext';
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
+    
+    // Check if user is logged in
+    const authToken = localStorage.getItem('authToken');
+    setIsLoggedIn(!!authToken);
     
     const handleScroll = () => {
       const isScrolled = window.scrollY > 10;
@@ -27,6 +32,31 @@ export default function Navbar() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [scrolled]);
+
+  // Listen for storage events to detect login/logout in other tabs
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const authToken = localStorage.getItem('authToken');
+      setIsLoggedIn(!!authToken);
+    };
+
+    // This event listener ensures the Navbar updates if localStorage changes in another tab
+    window.addEventListener('storage', checkLoginStatus);
+
+    // Initial check
+    checkLoginStatus();
+
+    return () => {
+      window.removeEventListener('storage', checkLoginStatus);
+    };
+  }, []);
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    setIsLoggedIn(false);
+    router.push('/');
+  };
 
   if (!mounted) {
     return (
@@ -98,26 +128,54 @@ export default function Navbar() {
           {darkMode ? <MdLightMode size={20} /> : <MdDarkMode size={20} />}
         </button>
         
-        <Link 
-          href="/login"
-          className={`rounded-full px-4 py-2 sm:px-6 md:px-8 md:py-3 text-sm sm:text-base transition-all duration-300 font-medium ${
-            darkMode 
-              ? 'bg-gray-700 text-white hover:bg-gray-600' 
-              : scrolled ? 'bg-gray-50 hover:bg-gray-100 text-gray-900' : 'bg-white/90 hover:bg-white text-gray-900'
-          }`}
-        >
-          Log In
-        </Link>
-        <Link 
-          href="/signup"
-          className={`rounded-full px-4 py-2 sm:px-6 md:px-8 md:py-3 text-sm sm:text-base transition-all duration-300 font-medium ${
-            darkMode 
-              ? 'bg-gray-600 text-white hover:bg-gray-500' 
-              : 'bg-white text-gray-900 hover:bg-gray-100'
-          }`}
-        >
-          Sign Up
-        </Link>
+        {/* Conditional rendering based on login status */}
+        {isLoggedIn ? (
+          <>
+            <Link 
+              href="/dashboard"
+              className={`rounded-full px-4 py-2 sm:px-6 md:px-8 md:py-3 text-sm sm:text-base transition-all duration-300 font-medium ${
+                darkMode 
+                  ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                  : scrolled ? 'bg-gray-50 hover:bg-gray-100 text-gray-900' : 'bg-white/90 hover:bg-white text-gray-900'
+              }`}
+            >
+              Dashboard
+            </Link>
+            <button 
+              onClick={handleLogout}
+              className={`rounded-full px-4 py-2 sm:px-6 md:px-8 md:py-3 text-sm sm:text-base transition-all duration-300 font-medium ${
+                darkMode 
+                  ? 'bg-gray-600 text-white hover:bg-gray-500' 
+                  : 'bg-white text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Log Out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link 
+              href="/login"
+              className={`rounded-full px-4 py-2 sm:px-6 md:px-8 md:py-3 text-sm sm:text-base transition-all duration-300 font-medium ${
+                darkMode 
+                  ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                  : scrolled ? 'bg-gray-50 hover:bg-gray-100 text-gray-900' : 'bg-white/90 hover:bg-white text-gray-900'
+              }`}
+            >
+              Log In
+            </Link>
+            <Link 
+              href="/signup"
+              className={`rounded-full px-4 py-2 sm:px-6 md:px-8 md:py-3 text-sm sm:text-base transition-all duration-300 font-medium ${
+                darkMode 
+                  ? 'bg-gray-600 text-white hover:bg-gray-500' 
+                  : 'bg-white text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Sign Up
+            </Link>
+          </>
+        )}
       </div>
     </header>
   );

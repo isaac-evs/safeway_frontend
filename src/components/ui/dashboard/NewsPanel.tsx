@@ -5,16 +5,7 @@ import { IoMdPerson } from 'react-icons/io'
 import { TbAlertCircle, TbBuildingSkyscraper, TbAlertTriangle, TbShield, TbChartBar, TbExternalLink, TbUser } from 'react-icons/tb'
 import mapboxgl from 'mapbox-gl'
 import { BsList, BsX, BsChevronLeft, BsChevronRight } from 'react-icons/bs'
-
-interface NewsItem {
-  id: number;
-  title: string;
-  description: string;
-  coordinates: [number, number];
-  type: 'crime' | 'infrastructure' | 'hazard' | 'social';
-  date: string;
-  url?: string;
-}
+import { NewsItem } from '@/types'
 
 interface NewsPanelProps {
   news: NewsItem[];
@@ -147,63 +138,52 @@ export default function NewsPanel({ news, loading, darkMode, mapRef }: NewsPanel
   
   // Function to update visible news based on map bounds
   const updateVisibleNews = useCallback(() => {
-    // If there's no map reference, show no news
-    if (!mapRef?.current) {
+    // Si no hay referencia al mapa o no hay noticias, no hay nada que filtrar
+    if (!mapRef?.current || !news || news.length === 0) {
       setVisibleNews([]);
       return;
     }
-    
-    // If there are no news items, nothing to filter
-    if (!news || news.length === 0) {
-      setVisibleNews([]);
-      return;
-    }
-    
+
     try {
-      // If map is not loaded, show no news
-      if (!mapRef.current.loaded()) {
+      const map = mapRef.current;
+      
+      // Si el mapa no está cargado, no hay nada que filtrar
+      if (!map.loaded()) {
         setVisibleNews([]);
         return;
       }
       
-      // Get current map bounds
-      const bounds = mapRef.current.getBounds();
-      // If no map bounds, show no news
+      const bounds = map.getBounds();
+      // Si no hay bounds, no hay nada que filtrar
       if (!bounds) {
         setVisibleNews([]);
         return;
       }
       
-      // Filter news items that are within the map bounds and not covered by sidebar
+      // Filtrar las noticias que están dentro de los límites del mapa y no cubiertas por la barra lateral
       const filteredNews = news.filter(item => {
         try {
-          const inBounds = bounds.contains({ 
-            lng: item.coordinates[0], 
-            lat: item.coordinates[1] 
-          });
+          // Procesar coordenadas si son string o array
+          let coords: [number, number];
+          if (typeof item.coordinates === 'string') {
+            const coordString = (item.coordinates as string).replace(/POINT\s*\(/, '').replace(/\)/, '');
+            const [lng, lat] = coordString.split(/\s+/).map(Number);
+            coords = [lng, lat];
+          } else {
+            coords = item.coordinates as [number, number];
+          }
           
-          // Check if the marker is visible (not covered by sidebar)
-          const isNotCovered = !isMarkerCoveredBySidebar(
-            item.coordinates, 
-            mapRef.current!, 
-            isCollapsed,
-            sidebarWidth
-          );
-          
-          return inBounds && isNotCovered;
+          // Verificar si está dentro de los límites y no cubierto por la barra lateral
+          return bounds.contains({ lng: coords[0], lat: coords[1] }) && 
+            !isMarkerCoveredBySidebar(coords, map, isCollapsed, sidebarWidth);
         } catch (error) {
-          console.error('Error checking if news item is in bounds:', error);
-          return false; // Exclude the item if we can't determine visibility
+          return false; // Excluir si no podemos determinar la visibilidad
         }
       });
       
-      console.log(`Filtered news: ${filteredNews.length} of ${news.length} items visible in map bounds`);
-      
-      // Always update the state with the filtered news to ensure UI is in sync with map
+      // Actualizar el estado con las noticias filtradas
       setVisibleNews(filteredNews);
-      
     } catch (error) {
-      console.error('Error updating visible news:', error);
       setVisibleNews([]);
     }
   }, [news, mapRef, isCollapsed, sidebarWidth]);
@@ -219,7 +199,6 @@ export default function NewsPanel({ news, loading, darkMode, mapRef }: NewsPanel
       return;
     }
     
-    console.log('Setting up map event listeners');
     const map = mapRef.current;
     
     // Update visible news immediately
@@ -236,13 +215,11 @@ export default function NewsPanel({ news, loading, darkMode, mapRef }: NewsPanel
     
     // Force an update after a short delay to ensure the map is fully loaded
     const initialUpdateTimer = setTimeout(() => {
-      console.log('Delayed update of visible news');
       updateVisibleNews();
     }, 300);
     
     // Additional forced update after a longer delay
     const secondUpdateTimer = setTimeout(() => {
-      console.log('Second delayed update of visible news');
       updateVisibleNews();
     }, 1000);
     

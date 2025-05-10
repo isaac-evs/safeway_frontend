@@ -9,15 +9,8 @@ import { IoMdPerson } from 'react-icons/io'
 import { createRoot, Root } from 'react-dom/client'
 import { HiLocationMarker } from 'react-icons/hi'
 import axios from 'axios'
-
-interface NewsItem {
-  id: number;
-  title: string;
-  description: string;
-  coordinates: [number, number]; // [longitude, latitude]
-  type: 'crime' | 'infrastructure' | 'hazard' | 'social';
-  date: string;
-}
+import { NewsItem } from '@/types'
+import { MAPBOX_TOKEN, NEWS_ENDPOINTS } from '@/config'
 
 interface DashboardMapProps {
   news: NewsItem[];
@@ -46,6 +39,14 @@ const getMarkerIcon = (type: string) => {
   }
 };
 
+// Eliminar console.logs innecesarios
+// En lugar de console.error, usar una función centralizada
+const logError = (message: string, error: any) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(`${message}:`, error);
+  }
+};
+
 export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLevel = 16 }: DashboardMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -63,14 +64,15 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
     location: '',
     type: '',
     date: '',
+    url: '',
     coordinates: [] as [number, number] | []
   })
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   
-  const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "your_mapbox_token"
-  mapboxgl.accessToken = MAPBOX_TOKEN
+  const MAPBOX_TOKEN_VALUE = MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "your_mapbox_token"
+  mapboxgl.accessToken = MAPBOX_TOKEN_VALUE
   
   // Función para desmontar raíces de marcadores
   const safelyUnmountRoots = useCallback(() => {
@@ -82,7 +84,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
     requestAnimationFrame(() => {
       if (mountedRef.current) {
         rootsArray.forEach(root => {
-          try { root.unmount(); } catch (err) { /* Silently ignore */ }
+          try { root.unmount(); } catch (_) { /* Silent catch */ }
         });
       }
     });
@@ -123,7 +125,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         showCompass: false
       }), 'bottom-right');
     } catch (error) {
-      console.error('Error al inicializar el mapa:', error);
+      logError('Error al inicializar el mapa:', error);
       if (map.current) {
         try { map.current.remove(); } catch (err) { /* Silently ignore */ }
       }
@@ -160,7 +162,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         duration: 1000
       });
     } catch (error) {
-      console.error('Error durante flyTo del mapa:', error);
+      logError('Error durante flyTo del mapa:', error);
     }
   }, [center, mapLoaded, zoomLevel])
   
@@ -192,12 +194,12 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
               map.current.setBearing(currentBearing);
               map.current.setPitch(currentPitch);
             } catch (err) {
-              console.error('Error al restaurar la posición del mapa:', err);
+              logError('Error al restaurar la posición del mapa:', err);
             }
           }
         });
       } catch (error) {
-        console.error('Error al cambiar estilo del mapa:', error);
+        logError('Error al cambiar estilo del mapa:', error);
       }
     }, 100);
     
@@ -222,6 +224,19 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
       if (!mountedRef.current || !map.current) return;
       
       try {
+        // Procesar coordenadas si vienen como string en formato "POINT (lng lat)"
+        let coordinates: [number, number];
+        
+        if (typeof item.coordinates === 'string') {
+          // Si es string, asumir formato POINT
+          const coordString = (item.coordinates as string).replace(/POINT\s*\(/, '').replace(/\)/, '');
+          const [lng, lat] = coordString.split(/\s+/).map(Number);
+          coordinates = [lng, lat];
+        } else {
+          // Si no es string, asumir que ya es un array [lng, lat]
+          coordinates = item.coordinates as [number, number];
+        }
+        
         // Crear elemento del marcador
         const markerEl = document.createElement('div');
         markerEl.className = 'marker-pin';
@@ -274,7 +289,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         
         // Crear marcador
         const marker = new mapboxgl.Marker(markerEl)
-          .setLngLat(item.coordinates)
+          .setLngLat(coordinates)
           .setPopup(popup);
         
         if (mountedRef.current && map.current) {
@@ -284,7 +299,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
           try { root.unmount(); } catch (err) { /* Silently ignore */ }
         }
       } catch (error) {
-        console.error('Error al añadir marcador:', error);
+        logError('Error al añadir marcador:', error);
       }
     });
     
@@ -313,7 +328,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
         {
           params: {
-            access_token: MAPBOX_TOKEN,
+            access_token: MAPBOX_TOKEN_VALUE,
             autocomplete: true,
             types: 'place,address,poi',
             limit: 5
@@ -326,7 +341,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         setShowSuggestions(true)
       }
     } catch (error) {
-      console.error("Error fetching location suggestions:", error)
+      logError("Error fetching location suggestions:", error)
       setLocationSuggestions([])
     } finally {
       setLoadingSuggestions(false)
@@ -368,12 +383,28 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
     const formData = {
       ...rest,
       date: issueDate,
+      coordinates: `POINT(${newIssue.coordinates[0]} ${newIssue.coordinates[1]})`, // Cambiado a formato POINT
     };
   
     try {
-      // Post to backend
-      await axios.post('/api/news', formData);
-      console.log('Submitting new issue:', formData);
+      // Obtener el token de autenticación
+      const token = localStorage.getItem('authToken');
+      
+      // Post to backend using correct endpoint
+      const response = await fetch(NEWS_ENDPOINTS.CREATE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        logError('Error creando noticia:', errorData);
+        throw new Error(errorData.detail ? JSON.stringify(errorData.detail) : errorData.message || 'Failed to create news item');
+      }
       
       // Reset form and close modal
       setNewIssue({
@@ -382,6 +413,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         location: '',
         type: '',
         date: '',
+        url: '',
         coordinates: [] as [number, number] | []
       });
       setIsModalOpen(false);
@@ -389,7 +421,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
       // TODO: Refresh news data or add to local news state
       
     } catch (error) {
-      console.error('Error submitting news item:', error);
+      logError('Error submitting news item:', error);
       // Handle error (show notification, etc.)
     }
   }
@@ -468,7 +500,7 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
             <div 
-              className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm transition-opacity" 
+              className="fixed inset-0 bg-opacity-60 backdrop-blur-sm transition-opacity" 
               onClick={() => setIsModalOpen(false)}
             ></div>
             
@@ -607,6 +639,22 @@ export default function DashboardMap({ news, center, darkMode, setMapRef, zoomLe
                             className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'} py-2 px-3 border focus:outline-none focus:ring-1 focus:ring-blue-500`}
                             value={newIssue.date}
                             onChange={(e) => setNewIssue({...newIssue, date: e.target.value})}
+                          />
+                        </div>
+
+                        {/* URL */}
+                        <div>
+                          <label htmlFor="url" className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Source URL
+                          </label>
+                          <input
+                            type="text"
+                            id="url"
+                            required
+                            placeholder="Enter incident url"
+                            className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'} py-2 px-3 border focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                            value={newIssue.url}
+                            onChange={(e) => setNewIssue({...newIssue, url: e.target.value})}
                           />
                         </div>
                       </div>
