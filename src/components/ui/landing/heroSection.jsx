@@ -44,7 +44,6 @@ export default function HeroSection() {
 
     setLoading(true);
     try {
-      console.log("Using Mapbox token:", MAPBOX_TOKEN); // Debug line
       const response = await axios.get(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
         {
