@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { HiLocationMarker } from 'react-icons/hi';
+import { HiLocationMarker } from "react-icons/hi";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { useRouter } from 'next/navigation';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { useRouter } from "next/navigation";
+import { useTheme } from "../../../contexts/ThemeContext";
 
 export default function HeroSection() {
   const [searchInput, setSearchInput] = useState("");
@@ -16,13 +16,13 @@ export default function HeroSection() {
   const { darkMode, toggleDarkMode } = useTheme();
   const searchRef = useRef(null);
   const router = useRouter();
-  
+
   // Mapbox access token - you should store this in an environment variable
   const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-  
+
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
   };
 
   const staggerContainer = {
@@ -30,9 +30,9 @@ export default function HeroSection() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2
-      }
-    }
+        staggerChildren: 0.2,
+      },
+    },
   };
 
   // Function to fetch location suggestions from Mapbox API
@@ -44,18 +44,19 @@ export default function HeroSection() {
 
     setLoading(true);
     try {
+      console.log("Using Mapbox token:", MAPBOX_TOKEN); // Debug line
       const response = await axios.get(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
         {
           params: {
             access_token: MAPBOX_TOKEN,
             autocomplete: true,
-            types: 'place,address,poi',
-            limit: 5
-          }
-        }
+            types: "place,address,poi",
+            limit: 5,
+          },
+        },
       );
-      
+
       if (response.data && response.data.features) {
         setSuggestions(response.data.features);
         setShowSuggestions(true);
@@ -105,7 +106,7 @@ export default function HeroSection() {
   const handleSelectLocation = (location) => {
     setSearchInput(location.place_name || location.text);
     setShowSuggestions(false);
-    
+
     // Extract coordinates and navigate to dashboard
     const coordinates = location.geometry.coordinates; // [longitude, latitude]
     navigateToDashboard(coordinates[0], coordinates[1]);
@@ -113,7 +114,7 @@ export default function HeroSection() {
 
   // Handle search submission (via Enter key)
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       if (suggestions.length > 0) {
         handleSelectLocation(suggestions[0]);
       }
@@ -145,7 +146,9 @@ export default function HeroSection() {
           quality={90}
           priority
         />
-        <div className={`absolute inset-0 ${darkMode ? 'bg-black/60' : 'bg-white/60'}`} />
+        <div
+          className={`absolute inset-0 ${darkMode ? "bg-black/60" : "bg-white/60"}`}
+        />
       </div>
 
       {/* Content Container */}
@@ -158,14 +161,14 @@ export default function HeroSection() {
             variants={staggerContainer}
             className="w-full max-w-[90vw] md:max-w-4xl mx-auto flex flex-col items-center"
           >
-            <motion.h2 
-              variants={fadeIn} 
+            <motion.h2
+              variants={fadeIn}
               className="mb-6 md:mb-10 text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-black tracking-tight text-center"
             >
               What's your <span className="font-bold">destination</span>?
             </motion.h2>
 
-            <motion.div 
+            <motion.div
               variants={fadeIn}
               className="relative w-full max-w-xl sm:max-w-2xl"
               ref={searchRef}
@@ -181,16 +184,31 @@ export default function HeroSection() {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  onFocus={() => searchInput && suggestions.length > 0 && setShowSuggestions(true)}
+                  onFocus={() =>
+                    searchInput &&
+                    suggestions.length > 0 &&
+                    setShowSuggestions(true)
+                  }
                   className="w-full rounded-full pl-14 sm:pl-16 pr-14 py-3 sm:py-4 text-base sm:text-lg text-gray-800 placeholder-gray-400 outline-none"
                 />
                 <div className="absolute right-3 flex">
-                  <button 
+                  <button
                     onClick={handleSearchButtonClick}
                     className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 sm:h-6 sm:w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -201,7 +219,7 @@ export default function HeroSection() {
                 <div className="absolute mt-2 w-full rounded-lg bg-white shadow-lg z-50 overflow-hidden border border-gray-100">
                   <ul className="py-1">
                     {suggestions.map((suggestion) => (
-                      <li 
+                      <li
                         key={suggestion.id}
                         onClick={() => handleSelectLocation(suggestion)}
                         className="px-4 py-3 hover:bg-gray-50 flex items-start cursor-pointer transition-colors"
